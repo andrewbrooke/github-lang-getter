@@ -3,6 +3,15 @@ const async = require('async');
 const inspector = require('schema-inspector');
 const request = require('request-promise-native');
 
+// Standard options for making requests to Github API
+const baseOpts = {
+    headers: {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'Request-Promise'
+    },
+    json: true
+};
+
 /**
  * Gets a Github user's repository programming language distribution
  * @param  {String} visibility Type of repositories to find (can be all, public, or private)
@@ -10,7 +19,7 @@ const request = require('request-promise-native');
  * @return {Promise}            Resolves if API request performed successfully
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
-exports.getUserLanguages = (visibility = 'public', token) => {
+exports.getRepoLanguages = (visibility = 'public', token) => {
     return new Promise((resolve, reject) => {
         // First validate the user input
         var validation = {
@@ -20,24 +29,19 @@ exports.getUserLanguages = (visibility = 'public', token) => {
         if (!result.valid) throw Error(result.format());
 
         // Form options for API request
-        var options = {
+        var options = _.defaults({
             uri: `https://api.github.com/user/repos`,
             qs: {
                 access_token: token, // eslint-disable-line
                 visibility: visibility
-            },
-            headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Request-Promise'
-            },
-            json: true
-        };
+            }
+        }, baseOpts);
 
         // Perform API request and handle result appropriately
         request(options).then((repos) => {
             var urls = _.map(repos, 'languages_url');
             // Push a function for each URL to get the languages byte count, and process them asynchronously
-            var funcs = _.map(urls, _.curry(getRepoLanguages)(token));
+            var funcs = _.map(urls, _.curry(createLanguagesRequest)(token));
             async.parallel(funcs, (err, results) => {
                 if (err) reject(err);
                 // Count bytes per language
@@ -63,20 +67,15 @@ exports.getUserLanguages = (visibility = 'public', token) => {
  * @return {Function}       Function to be passed a callback to resolve
  *                                   request for repository languages
  */
-function getRepoLanguages(token, repoUrl) {
+function createLanguagesRequest(token, repoUrl) {
     return function(callback) {
         // Form options for API request
-        var options = {
+        var options = _.defaults({
             uri: repoUrl,
             qs: {
                 access_token: token // eslint-disable-line
-            },
-            headers: {
-                'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Request-Promise'
-            },
-            json: true
-        };
+            }
+        }, baseOpts);
 
         // Perform API request and handle result appropriately
         request(options).then((result) => {

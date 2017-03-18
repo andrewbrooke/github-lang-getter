@@ -4,7 +4,7 @@
   "description": "Gets a Github user's programming language distribution across repositories",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "repository": {
     "type": "git",
@@ -29,5 +29,9 @@
     "request": "^2.81.0",
     "request-promise-native": "^1.0.3",
     "schema-inspector": "^1.6.8"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "mocha": "^3.2.0"
   }
 }

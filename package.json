@@ -1,0 +1,33 @@
+{
+  "name": "github-lang-getter",
+  "version": "1.0.0",
+  "description": "Gets a Github user's programming language distribution across repositories",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/andrewbrooke/github-lang-getter.git"
+  },
+  "keywords": [
+    "github",
+    "programming",
+    "language",
+    "api",
+    "node"
+  ],
+  "author": "Andrew Brooke",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/andrewbrooke/github-lang-getter/issues"
+  },
+  "homepage": "https://github.com/andrewbrooke/github-lang-getter#readme",
+  "dependencies": {
+    "async": "^2.1.5",
+    "lodash": "^4.17.4",
+    "request": "^2.81.0",
+    "request-promise-native": "^1.0.3",
+    "schema-inspector": "^1.6.8"
+  }
+}

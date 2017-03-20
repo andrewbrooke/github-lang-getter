@@ -1,7 +1,7 @@
 {
   "name": "github-lang-getter",
   "version": "1.0.0",
-  "description": "Gets a Github user's programming language distribution across repositories",
+  "description": "Gets a Github user's programming language distribution across repositories and commits",
   "main": "index.js",
   "scripts": {
     "test": "nyc mocha"
@@ -29,6 +29,7 @@
     "dotenv": "^4.0.0",
     "language-detect": "^1.1.0",
     "lodash": "^4.17.4",
+    "parse-link-header": "^0.4.1",
     "request": "^2.81.0",
     "request-promise-native": "^1.0.3",
     "schema-inspector": "^1.6.8"

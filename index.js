@@ -55,25 +55,26 @@ exports.getRepoLanguages = (visibility, token) => {
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
 exports.getCommitLanguages = (visibility, token) => {
-    return new Promise((resolve, reject) => {
-        getUserRepos(visibility, token).then((repos) => {
-            // Get Github username from access token
-            var options = _.defaults({
-                uri: API_BASE_URL + '/user',
-                qs: {
-                    access_token: token, // eslint-disable-line
-                },
-                resolveWithFullResponse: false
-            }, baseOpts);
+    return getUserRepos(visibility, token).then((repos) => {
+        // Get Github username from access token
+        var options = _.defaults({
+            uri: API_BASE_URL + '/user',
+            qs: {
+                access_token: token, // eslint-disable-line
+            },
+            resolveWithFullResponse: false
+        }, baseOpts);
 
-            // Perform API request and handle result appropriately
-            request(options).then((user) => {
-                // Get Repo commit URLs
-                var urls = _.map(repos, (repo) => {
-                    return repo.url + '/commits'
-                });
+        // Perform API request and handle result appropriately
+        return request(options).then((user) => {
+            // Get Repo commit URLs
+            var urls = _.map(repos, (repo) => {
+                return repo.url + '/commits'
+            });
 
-                var funcs = _.map(urls, _.curry(getRepoCommits)(user.login, token));
+            var funcs = _.map(urls, _.curry(getRepoCommits)(user.login, token));
+            return new Promise((resolve, reject) => {
+
                 async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
                     // Filter out undefined results
                     var commitArrays = _.filter(results, (result) => {
@@ -114,11 +115,7 @@ exports.getCommitLanguages = (visibility, token) => {
                         resolve(totals);
                     });
                 });
-            }).catch((err) => {
-                reject(err);
             });
-        }).catch((err) => {
-            reject(err);
         });
     });
 };

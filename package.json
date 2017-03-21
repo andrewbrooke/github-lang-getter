@@ -24,7 +24,6 @@
   },
   "homepage": "https://github.com/andrewbrooke/github-lang-getter#readme",
   "dependencies": {
-    "async": "^2.1.5",
     "bluebird": "^3.5.0",
     "different": "git://github.com/andrewbrooke/different.git",
     "dotenv": "^4.0.0",

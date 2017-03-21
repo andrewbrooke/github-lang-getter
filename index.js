@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const _ = require('lodash');
-const Promise = require("bluebird");
+const Promise = require('bluebird');
 const detect = require('language-detect');
 const different = require('different');
 const inspector = require('schema-inspector');
@@ -16,6 +16,9 @@ const baseOpts = {
         'Accept': 'application/vnd.github.v3+json',
         'User-Agent': 'Request-Promise'
     },
+    qs: {
+        per_page: 100, // eslint-disable-line
+    },
     json: true,
     resolveWithFullResponse: true
 };
@@ -28,18 +31,22 @@ const baseOpts = {
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
 exports.getRepoLanguages = (visibility, token) => {
+    // First get the User's repositories
     return getUserRepos(visibility, token).then((responses) => {
+        // Parse the repos json from the response bodies
         var repos = [];
         _.each(responses, (response) => {
             repos = repos.concat(response.body);
         });
+
+        // Map Promises for each URL to resolve to the total language byte count
         var urls = _.map(repos, 'languages_url');
-        // Push a function for each URL to get the languages byte count, and process them asynchronously
         var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
 
         return Promise.all(promises);
     }).then((responses) => {
         var results = _.map(responses, 'body');
+
         // Count bytes per language
         var totals = {};
         _.each(results, (obj) => {
@@ -54,7 +61,7 @@ exports.getRepoLanguages = (visibility, token) => {
 };
 
 /**
- * Gets a Github user's repository programming language distribution
+ * Gets a Github user's commit programming language distribution
  * @param  {String} visibility  Type of repositories to find (can be all, public, or private)
  * @param  {Object} token       Github personal access token
  * @return {Promise}            Resolves if API request performed successfully
@@ -62,8 +69,14 @@ exports.getRepoLanguages = (visibility, token) => {
  */
 exports.getCommitLanguages = (visibility, token) => {
     // First get the user's repositories
-    return getUserRepos(visibility, token).then((repos) => {
-        var options = _.defaults({
+    return getUserRepos(visibility, token).then((responses) => {
+        // Parse the repos json from the response bodies
+        var repos = [];
+        _.each(responses, (response) => {
+            repos = repos.concat(response.body);
+        });
+
+        var options = _.defaultsDeep({
             uri: API_BASE_URL + '/user',
             qs: {
                 access_token: token, // eslint-disable-line
@@ -78,32 +91,37 @@ exports.getCommitLanguages = (visibility, token) => {
                 return repo.url + '/commits'
             });
 
-            var funcs = _.map(urls, _.curry(getRepoCommits)(user.login, token));
+            // Map a Promise for each repo commit URL
+            var promises = _.map(urls, _.curry(getRepoCommits)(user.login, token));
 
-            // eslint-disable-next-line
-            return new Promise((resolve, reject) => { // Promise wrapper for callback-driven routine
-                async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
-                    // Filter out undefined results
-                    var commitArrays = _.filter(results, (result) => {
-                        return result !== undefined;
-                    });
-                    var commits = [];
-                    // For each array of commits
-                    _.each(commitArrays, (commitArray) => {
-                        // Filter out commits that don't belong to the user
-                        commits = commits.concat(commitArray);
-                    });
+            return Promise.all(promises.map((p) => Promise.resolve(p).reflect())).then((results) => {
+                var commits = [];
 
-                    // Get individual commit data from API
-                    var urls = _.filter(_.map(commits, 'url'), (c) => {
-                        return c !== undefined;
-                    });
-                    var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
-                    resolve(Promise.all(promises));
+                // Get commits from Promise reponses
+                results.forEach((result) => {
+                    if (result.isFulfilled()) {
+                        _.each(result.value(), (value) => {
+                            commits = commits.concat(value.body);
+                        });
+                    } else {
+                        // Can get called when a repo has no commits
+                        // TODO: should we do anything here?
+                    }
                 });
+
+                // Map a promise for each individual commit URL
+                var urls = _.chain(commits).filter((c) => {
+                                return c && c.author && c.author.login === user.login;
+                            }).map('url').value();
+
+                var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
+
+                return Promise.all(promises);
             }).then((responses) => {
-                var totals = {};
                 var commits = _.map(responses, 'body');
+                var totals = {};
+
+                // For each file in the commit files
                 _.each(commits, (commit) => {
                     _.each(commit.files, (file) => {
                         var language = detect.filename(file.filename);
@@ -114,6 +132,7 @@ exports.getCommitLanguages = (visibility, token) => {
                                 var byteCount = _.reduce(diff[0].additions, (sum, line) => {
                                     return line.length;
                                 }, 0);
+
                                 if (!totals[language]) totals[language] = 0;
                                 totals[language] += byteCount;
                             });
@@ -135,7 +154,7 @@ exports.getCommitLanguages = (visibility, token) => {
  *                              Rejects if an error occurs obtaining URLs
  */
 function getUserRepos(visibility, token) {
-    // First validate the user input
+    // First validate the user token input
     var validation = {
         type: 'string'
     };
@@ -144,94 +163,96 @@ function getUserRepos(visibility, token) {
 
     // Form options for API request
     var url = API_BASE_URL + '/user/repos';
-    var options = _.defaults({
+    var options = _.defaultsDeep({
         uri: url,
         qs: {
             access_token: token, // eslint-disable-line
-            per_page: 100, // eslint-disable-line
             visibility: visibility
         }
     }, baseOpts);
 
-    // Perform API request and handle result appropriately
     return request(options).then((response) => { // eslint-disable-line
         var link = parse(response.headers.link);
         var promises = []; // To store the promises to resolve the other pages of repos
+
         if (link) { // Get the other pages of results if necessary
             var start = Number(link.next.page), end = Number(link.last.page);
             for (var page = start; page <= end; page++) {
-                promises.push(_.curry(createAPIRequestPromise)(token, page, url))
+                promises.push(_.curry(createAPIRequestPromise)(token, {
+                    page: page,
+                    visibility: visibility
+                }, url));
             }
         }
-        promises.push(_.curry(createAPIRequestPromise)(token, 1, url))
+        promises.push(_.curry(createAPIRequestPromise)(token, {
+            page: 1,
+            visibility: visibility
+        }, url));
 
         return Promise.all(promises);
     });
 }
 
 /**
- * Creates and returns a function to be used to get all of the commits for a Github repo
+ * Creates and returns a promise to resolve to all of the commits for a Github repo
  * @param  {String} username    Github username
  * @param  {String} token       Github personal access token
  * @param  {String} repoUrl     Github repository URL
- * @return {Function}           Function to be passed into Async call with callback
+ * @return {Promise}            Promise to resolve repo commits
  */
 function getRepoCommits(username, token, repoUrl) {
-    return function(callback) {
-        // Form options for API request
-        var options = _.defaults({
-            uri: repoUrl,
-            qs: {
-                access_token: token, // eslint-disable-line
-                per_page: 100, // eslint-disable-line
-            }
-        }, baseOpts);
-        if (username) options.qs.author = username;
+    // Form options for API request
+    var options = _.defaultsDeep({
+        uri: repoUrl,
+        qs: {
+            access_token: token, // eslint-disable-line
+        }
+    }, baseOpts);
+    if (username) options.qs.author = username;
 
-        // Perform API request and handle result appropriately
-        request(options).then((response) => { // eslint-disable-line
-            var repos = response.body;
-            var link = parse(response.headers.link);
-            if (link) { // Get the other pages of results if necessary
-                var funcs = []; // To store the functions that we pass in to Async parallel
-                var start = Number(link.next.page);
-                var end = Number(link.last.page);
-                for (var page = start; page <= end; page++) {
-                    funcs.push(_.curry(createAPIRequestFunc)(token, page, repoUrl));
-                }
-                async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
-                    _.each(results, (result) => {
-                        repos = repos.concat(result.body);
-                    });
+    return request(options).then((response) => { // eslint-disable-line
+        var promises = []; // To store the promises to resolve the other pages of commits
+        var link = parse(response.headers.link);
 
-                    return callback(null, repos);
-                });
-            } else {
-                return callback(null, repos);
+        if (link) { // Get the other pages of results if necessary
+            var start = Number(link.next.page), end = Number(link.last.page);
+            for (var page = start; page <= end; page++) {
+                promises.push(_.curry(createAPIRequestPromise)(token, {
+                    page: page,
+                    author: username
+                }, repoUrl));
             }
-        }).catch((err) => {
-            return callback(err);
-        });
-    }
+        }
+        promises.push(_.curry(createAPIRequestPromise)(token, {
+            page: 1,
+            author: username
+        }, repoUrl));
+
+        return Promise.all(promises);
+    });
 }
 
 /**
- * Creates and returns a function to be used to get the language makeup for a specific Github repo
+ * Creates and returns a promise to resolve to a specific Github API request result
  * @param  {String} token   Github personal access token
- * @param  {Integer} page   Used for pagination, can be undefined
+ * @param  {Object} qs      Extra query string parameters
  * @param  {String} url     Github API URL
- * @return {Promise}        Promise to be passed into Promise.all()
+ * @return {Promise}        Promise to be resolved somewhere
  */
-function createAPIRequestPromise(token, page, url) {
+function createAPIRequestPromise(token, qs, url) {
     // Form options for API request
-    var options = _.defaults({
+    var options = _.defaultsDeep({
         uri: url,
         qs: {
             access_token: token, // eslint-disable-line
-            per_page: 100, // eslint-disable-line
         }
     }, baseOpts);
-    if (page) options.qs.page = page;
+    if (qs) {
+        for (var key in qs) {
+            if (Object.prototype.hasOwnProperty.call(qs, key))
+                options.qs[key] = qs[key];
+        }
+    }
 
     // Perform API request and handle result appropriately
     return request(options);

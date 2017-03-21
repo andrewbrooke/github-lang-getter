@@ -31,7 +31,7 @@ exports.getRepoLanguages = (visibility, token) => {
     return getUserRepos(visibility, token).then((repos) => {
         var urls = _.map(repos, 'languages_url');
         // Push a function for each URL to get the languages byte count, and process them asynchronously
-        var promises = _.map(urls, _.curry(createAPIRequestPromiseFunc)(token, null));
+        var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
         return Promise.all(promises);
     }).then(responses => {
         var results = _.map(responses, 'body');
@@ -90,7 +90,7 @@ exports.getCommitLanguages = (visibility, token) => {
                     var urls = _.filter(_.map(commits, 'url'), (c) => {
                         return c !== undefined;
                     });
-                    var promises = _.map(urls, _.curry(createAPIRequestPromiseFunc)(token, null));
+                    var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
                     resolve(Promise.all(promises));
                 });
             }).then(responses => {
@@ -194,7 +194,7 @@ function getRepoCommits(username, token, repoUrl) {
                 var start = Number(link.next.page);
                 var end = Number(link.last.page);
                 for (var page = start; page <= end; page++) {
-                    funcs.push(_.curry(createAPIRequestFunc)(token, page, repoUrl))
+                    funcs.push(_.curry(createAPIRequestFunc)(token, page, repoUrl));
                 }
                 async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
                     _.each(results, (result) => {
@@ -217,9 +217,9 @@ function getRepoCommits(username, token, repoUrl) {
  * @param  {String} token   Github personal access token
  * @param  {Integer} page   Used for pagination, can be undefined
  * @param  {String} url     Github API URL
- * @return {Function}       Function to be passed into Async call with callback
+ * @return {Promise}        Promise to be passed into Promise.all()
  */
-function createAPIRequestPromiseFunc(token, page, url) {
+function createAPIRequestPromise(token, page, url) {
     // Form options for API request
     var options = _.defaults({
         uri: url,

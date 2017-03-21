@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 const _ = require('lodash');
-const async = require('async');
+const Promise = require("bluebird");
 const detect = require('language-detect');
 const different = require('different');
 const inspector = require('schema-inspector');
@@ -28,7 +28,11 @@ const baseOpts = {
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
 exports.getRepoLanguages = (visibility, token) => {
-    return getUserRepos(visibility, token).then((repos) => {
+    return getUserRepos(visibility, token).then((responses) => {
+        var repos = [];
+        _.each(responses, (response) => {
+            repos = repos.concat(response.body);
+        });
         var urls = _.map(repos, 'languages_url');
         // Push a function for each URL to get the languages byte count, and process them asynchronously
         var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
@@ -100,22 +104,22 @@ exports.getCommitLanguages = (visibility, token) => {
             }).then((responses) => {
                 var totals = {};
                 var commits = _.map(responses, 'body');
-                    _.each(commits, (commit) => {
-                        _.each(commit.files, (file) => {
-                            var language = detect.filename(file.filename);
-                            if (language) {
-                                // Parse Git diff
-                                different.parseDiffFromString('diff\n' + file.patch, (diff) => {
-                                    // Sum number of bytes from additions and add to results
-                                    var byteCount = _.reduce(diff[0].additions, (sum, line) => {
-                                        return line.length;
-                                    }, 0);
-                                    if (!totals[language]) totals[language] = 0;
-                                    totals[language] += byteCount;
-                                });
-                            }
-                        });
+                _.each(commits, (commit) => {
+                    _.each(commit.files, (file) => {
+                        var language = detect.filename(file.filename);
+                        if (language) {
+                            // Parse Git diff
+                            different.parseDiffFromString('diff\n' + file.patch, (diff) => {
+                                // Sum number of bytes from additions and add to results
+                                var byteCount = _.reduce(diff[0].additions, (sum, line) => {
+                                    return line.length;
+                                }, 0);
+                                if (!totals[language]) totals[language] = 0;
+                                totals[language] += byteCount;
+                            });
+                        }
                     });
+                });
 
                 return totals;
             });
@@ -150,26 +154,18 @@ function getUserRepos(visibility, token) {
     }, baseOpts);
 
     // Perform API request and handle result appropriately
-    return request(options).then((response) => {
-        var repos = response.body;
+    return request(options).then((response) => { // eslint-disable-line
         var link = parse(response.headers.link);
+        var promises = []; // To store the promises to resolve the other pages of repos
         if (link) { // Get the other pages of results if necessary
-            var funcs = []; // To store the functions that we pass in to Async parallel
-            var start = Number(link.next.page);
-            var end = Number(link.last.page);
+            var start = Number(link.next.page), end = Number(link.last.page);
             for (var page = start; page <= end; page++) {
-                funcs.push(_.curry(createAPIRequestFunc)(token, page, url))
+                promises.push(_.curry(createAPIRequestPromise)(token, page, url))
             }
-            async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
-                _.each(results, (result) => {
-                    repos = repos.concat(result.body);
-                });
-
-                return repos;
-            });
         }
+        promises.push(_.curry(createAPIRequestPromise)(token, 1, url))
 
-        return repos;
+        return Promise.all(promises);
     });
 }
 
@@ -239,51 +235,4 @@ function createAPIRequestPromise(token, page, url) {
 
     // Perform API request and handle result appropriately
     return request(options);
-}
-
-function createAPIRequestFunc(token, page, url) {
-    return function(callback) {
-        // Form options for API request
-        var options = _.defaults({
-            uri: url,
-            qs: {
-                access_token: token, // eslint-disable-line
-                per_page: 100, // eslint-disable-line
-            }
-        }, baseOpts);
-        if (page) options.qs.page = page;
-
-        // Perform API request and handle result appropriately
-        request(options).then((response) => {
-            callback(null, response);
-        }).catch((err) => {
-            callback(err);
-        });
-    }
-}
-
-/**
- * Addition to Async parallel method to prevent function chain from breaking on failure
- * @param  {Array}   functions  List of functions to execute
- * @param  {Function} callback  Callback function
- * @return {Function}           Async parallel method to execute
- */
-async.parallelPlus = function(functions, callback) {
-    function wrap(func) {
-        return function(callback) {
-            func(function(err, value) {
-                if (err) return callback(null, false);
-
-                return callback(null, value);
-            });
-        }
-    }
-    var newFunctions = {};
-    for (var func in functions) {
-        if (functions.hasOwnProperty(func)) {
-            newFunctions[func] = wrap(functions[func]);
-        }
-    }
-
-    return async.parallel(newFunctions, callback);
 }

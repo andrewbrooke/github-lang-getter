@@ -73,8 +73,7 @@ exports.getCommitLanguages = (visibility, token) => {
             });
 
             var funcs = _.map(urls, _.curry(getRepoCommits)(user.login, token));
-            return new Promise((resolve, reject) => {
-
+            return new Promise((resolve, reject) => { // Promise wrapper for callback-driven routine
                 async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
                     // Filter out undefined results
                     var commitArrays = _.filter(results, (result) => {
@@ -94,7 +93,6 @@ exports.getCommitLanguages = (visibility, token) => {
                     var promises = _.map(urls, _.curry(createAPIRequestPromiseFunc)(token, null));
                     resolve(Promise.all(promises));
                 });
-            
             }).then(responses => {
                 var totals = {};
                 var commits = _.map(responses, 'body');
@@ -128,46 +126,43 @@ exports.getCommitLanguages = (visibility, token) => {
  *                              Rejects if an error occurs obtaining URLs
  */
 function getUserRepos(visibility, token) {
-    return new Promise((resolve, reject) => {
-        // First validate the user input
-        var validation = {
-            type: 'string'
-        };
-        var result = inspector.validate(validation, token);
-        if (!result.valid) throw Error(result.format());
+    // First validate the user input
+    var validation = {
+        type: 'string'
+    };
+    var result = inspector.validate(validation, token);
+    if (!result.valid) throw Error(result.format());
 
-        // Form options for API request
-        var url = API_BASE_URL + '/user/repos';
-        var options = _.defaults({
-            uri: url,
-            qs: {
-                access_token: token, // eslint-disable-line
-                per_page: 100, // eslint-disable-line
-                visibility: visibility
+    // Form options for API request
+    var url = API_BASE_URL + '/user/repos';
+    var options = _.defaults({
+        uri: url,
+        qs: {
+            access_token: token, // eslint-disable-line
+            per_page: 100, // eslint-disable-line
+            visibility: visibility
+        }
+    }, baseOpts);
+
+    // Perform API request and handle result appropriately
+    return request(options).then((response) => {
+        var repos = response.body;
+        var link = parse(response.headers.link);
+        if (link) { // Get the other pages of results if necessary
+            var funcs = []; // To store the functions that we pass in to Async parallel
+            var start = Number(link.next.page);
+            var end = Number(link.last.page);
+            for (var page = start; page <= end; page++) {
+                funcs.push(_.curry(createAPIRequestFunc)(token, page, url))
             }
-        }, baseOpts);
-
-        // Perform API request and handle result appropriately
-        request(options).then((response) => {
-            var repos = response.body;
-            var link = parse(response.headers.link);
-            if (link) { // Get the other pages of results if necessary
-                var funcs = []; // To store the functions that we pass in to Async parallel
-                var start = Number(link.next.page);
-                var end = Number(link.last.page);
-                for (var page = start; page <= end; page++) {
-                    funcs.push(_.curry(createAPIRequestFunc)(token, page, url))
-                }
-                async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
-                    _.each(results, (result) => {
-                        repos = repos.concat(result.body);
-                    });
-                    resolve(repos);
+            async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
+                _.each(results, (result) => {
+                    repos = repos.concat(result.body);
                 });
-            } else {
-                resolve(repos);
-            }
-        });
+                return repos;
+            });
+        }
+        return repos;
     });
 }
 

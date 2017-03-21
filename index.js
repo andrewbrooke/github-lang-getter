@@ -92,19 +92,19 @@ exports.getCommitLanguages = (visibility, token) => {
 
             // Map a Promise for each repo commit URL
             var promises = _.map(urls, _.curry(getRepoCommits)(user.login, token));
-            promises = promises.map((p) => p.then(v => v, e => ({error: true})));
+            promises = promises.map((p) => p.then((v) => v, (e) => ({ error: e })));
+
             return Promise.all(promises).then((results) => {
                 var commits = [];
 
                 // Get commits from Promise reponses
                 results.forEach((result) => {
-                    if (!result.error) {
+                    if (result.error) {
+                        // TODO: Promise may be rejected in certain cases should we do anything here?
+                    } else {
                         _.each(result, (value) => {
                             commits = commits.concat(value.body);
                         });
-                    } else {
-                        // Can get called when a repo has no commits
-                        // TODO: should we do anything here?
                     }
                 });
 

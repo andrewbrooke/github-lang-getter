@@ -32,8 +32,9 @@ exports.getRepoLanguages = (visibility, token) => {
         var urls = _.map(repos, 'languages_url');
         // Push a function for each URL to get the languages byte count, and process them asynchronously
         var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
+
         return Promise.all(promises);
-    }).then(responses => {
+    }).then((responses) => {
         var results = _.map(responses, 'body');
         // Count bytes per language
         var totals = {};
@@ -43,6 +44,7 @@ exports.getRepoLanguages = (visibility, token) => {
                 totals[key] += obj[key];
             });
         });
+
         return totals;
     });
 };
@@ -55,8 +57,8 @@ exports.getRepoLanguages = (visibility, token) => {
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
 exports.getCommitLanguages = (visibility, token) => {
+    // First get the user's repositories
     return getUserRepos(visibility, token).then((repos) => {
-        // Get Github username from access token
         var options = _.defaults({
             uri: API_BASE_URL + '/user',
             qs: {
@@ -65,7 +67,7 @@ exports.getCommitLanguages = (visibility, token) => {
             resolveWithFullResponse: false
         }, baseOpts);
 
-        // Perform API request and handle result appropriately
+        // Get Github username from access token
         return request(options).then((user) => {
             // Get Repo commit URLs
             var urls = _.map(repos, (repo) => {
@@ -73,6 +75,8 @@ exports.getCommitLanguages = (visibility, token) => {
             });
 
             var funcs = _.map(urls, _.curry(getRepoCommits)(user.login, token));
+
+            // eslint-disable-next-line
             return new Promise((resolve, reject) => { // Promise wrapper for callback-driven routine
                 async.parallelPlus(funcs, (err, results) => { // eslint-disable-line
                     // Filter out undefined results
@@ -93,7 +97,7 @@ exports.getCommitLanguages = (visibility, token) => {
                     var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
                     resolve(Promise.all(promises));
                 });
-            }).then(responses => {
+            }).then((responses) => {
                 var totals = {};
                 var commits = _.map(responses, 'body');
                     _.each(commits, (commit) => {
@@ -112,6 +116,7 @@ exports.getCommitLanguages = (visibility, token) => {
                             }
                         });
                     });
+
                 return totals;
             });
         });
@@ -159,9 +164,11 @@ function getUserRepos(visibility, token) {
                 _.each(results, (result) => {
                     repos = repos.concat(result.body);
                 });
+
                 return repos;
             });
         }
+
         return repos;
     });
 }

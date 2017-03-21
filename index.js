@@ -1,7 +1,6 @@
 require('dotenv').config();
 
 const _ = require('lodash');
-const Promise = require('bluebird');
 const detect = require('language-detect');
 const different = require('different');
 const inspector = require('schema-inspector');
@@ -93,14 +92,14 @@ exports.getCommitLanguages = (visibility, token) => {
 
             // Map a Promise for each repo commit URL
             var promises = _.map(urls, _.curry(getRepoCommits)(user.login, token));
-
-            return Promise.all(promises.map((p) => Promise.resolve(p).reflect())).then((results) => {
+            promises = promises.map((p) => p.then(v => v, e => ({error: true})));
+            return Promise.all(promises).then((results) => {
                 var commits = [];
 
                 // Get commits from Promise reponses
                 results.forEach((result) => {
-                    if (result.isFulfilled()) {
-                        _.each(result.value(), (value) => {
+                    if (!result.error) {
+                        _.each(result, (value) => {
                             commits = commits.concat(value.body);
                         });
                     } else {

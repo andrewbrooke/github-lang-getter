@@ -87,34 +87,34 @@ exports.getCommitLanguages = (visibility, token) => {
                         commits = commits.concat(commitArray);
                     });
 
-                    var totals = {};
-
                     // Get individual commit data from API
                     var urls = _.filter(_.map(commits, 'url'), (c) => {
                         return c !== undefined;
                     });
-                    var funcs = _.map(urls, _.curry(createAPIRequestFunc)(token, null));
-                    async.parallel(funcs, (err, responses) => { // eslint-disable-line
-                        var commits = _.map(responses, 'body');
-                        _.each(commits, (commit) => {
-                            _.each(commit.files, (file) => {
-                                var language = detect.filename(file.filename);
-                                if (language) {
-                                    // Parse Git diff
-                                    different.parseDiffFromString('diff\n' + file.patch, (diff) => {
-                                        // Sum number of bytes from additions and add to results
-                                        var byteCount = _.reduce(diff[0].additions, (sum, line) => {
-                                            return line.length;
-                                        }, 0);
-                                        if (!totals[language]) totals[language] = 0;
-                                        totals[language] += byteCount;
-                                    });
-                                }
-                            });
-                        });
-                        resolve(totals);
-                    });
+                    var promises = _.map(urls, _.curry(createAPIRequestPromiseFunc)(token, null));
+                    resolve(Promise.all(promises));
                 });
+            
+            }).then(responses => {
+                var totals = {};
+                var commits = _.map(responses, 'body');
+                    _.each(commits, (commit) => {
+                        _.each(commit.files, (file) => {
+                            var language = detect.filename(file.filename);
+                            if (language) {
+                                // Parse Git diff
+                                different.parseDiffFromString('diff\n' + file.patch, (diff) => {
+                                    // Sum number of bytes from additions and add to results
+                                    var byteCount = _.reduce(diff[0].additions, (sum, line) => {
+                                        return line.length;
+                                    }, 0);
+                                    if (!totals[language]) totals[language] = 0;
+                                    totals[language] += byteCount;
+                                });
+                            }
+                        });
+                    });
+                return totals;
             });
         });
     });
@@ -167,8 +167,6 @@ function getUserRepos(visibility, token) {
             } else {
                 resolve(repos);
             }
-        }).catch((err) => {
-            reject(err);
         });
     });
 }

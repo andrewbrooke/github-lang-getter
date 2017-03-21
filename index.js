@@ -27,12 +27,26 @@ const baseOpts = {
  * @return {Promise}            Resolves if API request performed successfully
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
-exports.getRepoLanguages = (visibility = 'public', token) => {
-    return new Promise((resolve, reject) => {
-        getUserRepos(visibility, token).then((repos) => {
-            var urls = _.map(repos, 'languages_url');
-            // Push a function for each URL to get the languages byte count, and process them asynchronously
-            var funcs = _.map(urls, _.curry(createAPIRequestFunc)(token, null));
+exports.getRepoLanguages = (visibility, token) => {
+    return getUserRepos(visibility, token).then((repos) => {
+        var urls = _.map(repos, 'languages_url');
+        // Push a function for each URL to get the languages byte count, and process them asynchronously
+        var funcs = _.map(urls, _.curry(createAPIRequestFunc)(token, null));
+        console.log(funcs[0].toString());
+        // return Promise.all([funcs]).then(responses => {
+        //     var results = _.map(responses, 'body');
+        //     // Count bytes per language
+        //     var totals = {};
+        //     _.each(results, (obj) => {
+        //         _.each(obj, (val, key) => {
+        //             if (!totals[key]) totals[key] = 0;
+        //             totals[key] += obj[key];
+        //         });
+        //     });
+
+        //     return totals;
+        // });
+        return new Promise((resolve, reject) => { // Promise wrapper around a callback-based task
             async.parallel(funcs, (err, responses) => {
                 if (err) reject(err);
                 var results = _.map(responses, 'body');
@@ -46,8 +60,6 @@ exports.getRepoLanguages = (visibility = 'public', token) => {
                 });
                 resolve(totals);
             });
-        }).catch((err) => {
-            reject(err);
         });
     });
 };
@@ -59,7 +71,7 @@ exports.getRepoLanguages = (visibility = 'public', token) => {
  * @return {Promise}            Resolves if API request performed successfully
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
-exports.getCommitLanguages = (visibility = 'public', token) => {
+exports.getCommitLanguages = (visibility, token) => {
     return new Promise((resolve, reject) => {
         getUserRepos(visibility, token).then((repos) => {
             // Get Github username from access token
@@ -135,7 +147,7 @@ exports.getCommitLanguages = (visibility = 'public', token) => {
  * @return {Promise}            Resolves if repo URLs are obtained
  *                              Rejects if an error occurs obtaining URLs
  */
-function getUserRepos(visibility = 'public', token) {
+function getUserRepos(visibility, token) {
     return new Promise((resolve, reject) => {
         // First validate the user input
         var validation = {
@@ -236,6 +248,7 @@ function getRepoCommits(username, token, repoUrl) {
  */
 function createAPIRequestFunc(token, page, url) {
     return function(callback) {
+        console.log('invoke function(callback)');
         // Form options for API request
         var options = _.defaults({
             uri: url,
@@ -248,6 +261,7 @@ function createAPIRequestFunc(token, page, url) {
 
         // Perform API request and handle result appropriately
         request(options).then((response) => {
+            console.log(callback.toString());
             callback(null, response);
         }).catch((err) => {
             callback(err);
@@ -273,7 +287,7 @@ async.parallelPlus = function(functions, callback) {
     }
     var newFunctions = {};
     for (var func in functions) {
-        if (Object.prototype.hasOwnProperty.call(functions, func)) {
+        if (functions.hasOwnProperty(func)) {
             newFunctions[func] = wrap(functions[func]);
         }
     }

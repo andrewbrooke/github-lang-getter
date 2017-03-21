@@ -31,36 +31,19 @@ exports.getRepoLanguages = (visibility, token) => {
     return getUserRepos(visibility, token).then((repos) => {
         var urls = _.map(repos, 'languages_url');
         // Push a function for each URL to get the languages byte count, and process them asynchronously
-        var funcs = _.map(urls, _.curry(createAPIRequestFunc)(token, null));
-        console.log(funcs[0].toString());
-        // return Promise.all([funcs]).then(responses => {
-        //     var results = _.map(responses, 'body');
-        //     // Count bytes per language
-        //     var totals = {};
-        //     _.each(results, (obj) => {
-        //         _.each(obj, (val, key) => {
-        //             if (!totals[key]) totals[key] = 0;
-        //             totals[key] += obj[key];
-        //         });
-        //     });
-
-        //     return totals;
-        // });
-        return new Promise((resolve, reject) => { // Promise wrapper around a callback-based task
-            async.parallel(funcs, (err, responses) => {
-                if (err) reject(err);
-                var results = _.map(responses, 'body');
-                // Count bytes per language
-                var totals = {};
-                _.each(results, (obj) => {
-                    _.each(obj, (val, key) => {
-                        if (!totals[key]) totals[key] = 0;
-                        totals[key] += obj[key];
-                    });
-                });
-                resolve(totals);
+        var promises = _.map(urls, _.curry(createAPIRequestPromiseFunc)(token, null));
+        return Promise.all(promises);
+    }).then(responses => {
+        var results = _.map(responses, 'body');
+        // Count bytes per language
+        var totals = {};
+        _.each(results, (obj) => {
+            _.each(obj, (val, key) => {
+                if (!totals[key]) totals[key] = 0;
+                totals[key] += obj[key];
             });
         });
+        return totals;
     });
 };
 
@@ -246,9 +229,23 @@ function getRepoCommits(username, token, repoUrl) {
  * @param  {String} url     Github API URL
  * @return {Function}       Function to be passed into Async call with callback
  */
+function createAPIRequestPromiseFunc(token, page, url) {
+    // Form options for API request
+    var options = _.defaults({
+        uri: url,
+        qs: {
+            access_token: token, // eslint-disable-line
+            per_page: 100, // eslint-disable-line
+        }
+    }, baseOpts);
+    if (page) options.qs.page = page;
+
+    // Perform API request and handle result appropriately
+    return request(options);
+}
+
 function createAPIRequestFunc(token, page, url) {
     return function(callback) {
-        console.log('invoke function(callback)');
         // Form options for API request
         var options = _.defaults({
             uri: url,
@@ -261,7 +258,6 @@ function createAPIRequestFunc(token, page, url) {
 
         // Perform API request and handle result appropriately
         request(options).then((response) => {
-            console.log(callback.toString());
             callback(null, response);
         }).catch((err) => {
             callback(err);

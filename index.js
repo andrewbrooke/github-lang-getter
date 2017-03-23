@@ -33,21 +33,21 @@ exports.getRepoLanguages = (visibility, token) => {
     // First get the User's repositories
     return getUserRepos(visibility, token).then((responses) => {
         // Parse the repos json from the response bodies
-        var repos = [];
+        let repos = [];
         _.each(responses, (response) => {
             repos = repos.concat(response.body);
         });
 
         // Map Promises for each URL to resolve to the total language byte count
-        var urls = _.map(repos, 'languages_url');
-        var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
+        const urls = _.map(repos, 'languages_url');
+        const promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
 
         return Promise.all(promises);
     }).then((responses) => {
-        var results = _.map(responses, 'body');
+        const results = _.map(responses, 'body');
 
         // Count bytes per language
-        var totals = {};
+        const totals = {};
         _.each(results, (obj) => {
             _.each(obj, (val, key) => {
                 if (!totals[key]) totals[key] = 0;
@@ -70,12 +70,12 @@ exports.getCommitLanguages = (visibility, token) => {
     // First get the user's repositories
     return getUserRepos(visibility, token).then((responses) => {
         // Parse the repos json from the response bodies
-        var repos = [];
+        let repos = [];
         _.each(responses, (response) => {
             repos = repos.concat(response.body);
         });
 
-        var options = _.defaultsDeep({
+        const options = _.defaultsDeep({
             uri: API_BASE_URL + '/user',
             qs: {
                 access_token: token, // eslint-disable-line
@@ -86,16 +86,16 @@ exports.getCommitLanguages = (visibility, token) => {
         // Get Github username from access token
         return request(options).then((user) => {
             // Get Repo commit URLs
-            var urls = _.map(repos, (repo) => {
+            const urls = _.map(repos, (repo) => {
                 return repo.url + '/commits'
             });
 
             // Map a Promise for each repo commit URL
-            var promises = _.map(urls, _.curry(getRepoCommits)(user.login, token));
+            let promises = _.map(urls, _.curry(getRepoCommits)(user.login, token));
             promises = promises.map((p) => p.then((v) => v, (e) => ({ error: e })));
 
             return Promise.all(promises).then((results) => {
-                var commits = [];
+                let commits = [];
 
                 // Get commits from Promise reponses
                 results.forEach((result) => {
@@ -109,22 +109,22 @@ exports.getCommitLanguages = (visibility, token) => {
                 });
 
                 // Map a promise for each individual commit URL
-                var urls = _.chain(commits).filter((c) => {
+                const urls = _.chain(commits).filter((c) => {
                                 return c && c.author && c.author.login === user.login;
                             }).map('url').value();
 
-                var promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
+                const promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
 
                 return Promise.all(promises);
             }).then((responses) => {
-                var commits = _.map(responses, 'body');
-                var totals = {};
+                const commits = _.map(responses, 'body');
+                const totals = {};
 
                 // For each file in the commit files
                 _.each(commits, (commit) => {
-                    var commitLangs = []; // Store all the languages present in commit
+                    const commitLangs = []; // Store all the languages present in commit
                     _.each(commit.files, (file) => {
-                        var language = detect.filename(file.filename);
+                        const language = detect.filename(file.filename);
                         if (language) {
                             // Create empty object to hold total values
                             if (!totals[language]) totals[language] = {
@@ -133,7 +133,7 @@ exports.getCommitLanguages = (visibility, token) => {
                             };
 
                             // Add one to the language commit count if we haven't already
-                            if (commitLangs.indexOf(language) == -1) {
+                            if (!commitLangs.includes(language)) {
                                 commitLangs.push(language);
                                 totals[language].commits += 1;
                             }
@@ -141,7 +141,7 @@ exports.getCommitLanguages = (visibility, token) => {
                             // Parse Git diff
                             different.parseDiffFromString('diff\n' + file.patch, (diff) => {
                                 // Sum number of bytes from additions and add to results
-                                var byteCount = _.reduce(diff[0].additions, (sum, line) => {
+                                const byteCount = _.reduce(diff[0].additions, (sum, line) => {
                                     return line.length;
                                 }, 0);
 
@@ -166,15 +166,15 @@ exports.getCommitLanguages = (visibility, token) => {
  */
 function getUserRepos(visibility, token) {
     // First validate the user token input
-    var validation = {
+    const validation = {
         type: 'string'
     };
-    var result = inspector.validate(validation, token);
+    const result = inspector.validate(validation, token);
     if (!result.valid) throw Error(result.format());
 
     // Form options for API request
-    var url = API_BASE_URL + '/user/repos';
-    var options = _.defaultsDeep({
+    const url = API_BASE_URL + '/user/repos';
+    const options = _.defaultsDeep({
         uri: url,
         qs: {
             access_token: token, // eslint-disable-line
@@ -183,12 +183,12 @@ function getUserRepos(visibility, token) {
     }, baseOpts);
 
     return request(options).then((response) => { // eslint-disable-line
-        var link = parse(response.headers.link);
-        var promises = []; // To store the promises to resolve the other pages of repos
+        const link = parse(response.headers.link);
+        const promises = []; // To store the promises to resolve the other pages of repos
 
         if (link) { // Get the other pages of results if necessary
-            var start = Number(link.next.page), end = Number(link.last.page);
-            for (var page = start; page <= end; page++) {
+            const start = Number(link.next.page), end = Number(link.last.page);
+            for (let page = start; page <= end; page++) {
                 promises.push(_.curry(createAPIRequestPromise)(token, {
                     page: page,
                     visibility: visibility
@@ -213,7 +213,7 @@ function getUserRepos(visibility, token) {
  */
 function getRepoCommits(username, token, repoUrl) {
     // Form options for API request
-    var options = _.defaultsDeep({
+    const options = _.defaultsDeep({
         uri: repoUrl,
         qs: {
             access_token: token, // eslint-disable-line
@@ -222,12 +222,12 @@ function getRepoCommits(username, token, repoUrl) {
     if (username) options.qs.author = username;
 
     return request(options).then((response) => { // eslint-disable-line
-        var promises = []; // To store the promises to resolve the other pages of commits
-        var link = parse(response.headers.link);
+        const promises = []; // To store the promises to resolve the other pages of commits
+        const link = parse(response.headers.link);
 
         if (link) { // Get the other pages of results if necessary
-            var start = Number(link.next.page), end = Number(link.last.page);
-            for (var page = start; page <= end; page++) {
+            const start = Number(link.next.page), end = Number(link.last.page);
+            for (let page = start; page <= end; page++) {
                 promises.push(_.curry(createAPIRequestPromise)(token, {
                     page: page,
                     author: username
@@ -252,14 +252,14 @@ function getRepoCommits(username, token, repoUrl) {
  */
 function createAPIRequestPromise(token, qs, url) {
     // Form options for API request
-    var options = _.defaultsDeep({
+    const options = _.defaultsDeep({
         uri: url,
         qs: {
             access_token: token, // eslint-disable-line
         }
     }, baseOpts);
     if (qs) {
-        for (var key in qs) {
+        for (let key in qs) {
             if (Object.prototype.hasOwnProperty.call(qs, key))
                 options.qs[key] = qs[key];
         }

@@ -26,7 +26,12 @@ describe('Tests', () => {
         langGetter.getCommitLanguages('public', process.env.GITHUB_ACCESS_TOKEN).then((result) => {
             Object.keys(result).forEach((key) => {
                 assert.typeOf(key, 'String');
-                assert.typeOf(result[key], 'Number');
+                assert.typeOf(result[key], 'Object');
+                var resultObj = result[key];
+                assert.property(resultObj, 'commits');
+                assert.property(resultObj, 'bytes');
+                assert.typeOf(resultObj.commits, 'Number');
+                assert.typeOf(resultObj.bytes, 'Number');
             });
             done();
         });

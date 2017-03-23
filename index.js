@@ -122,9 +122,22 @@ exports.getCommitLanguages = (visibility, token) => {
 
                 // For each file in the commit files
                 _.each(commits, (commit) => {
+                    var commitLangs = []; // Store all the languages present in commit
                     _.each(commit.files, (file) => {
                         var language = detect.filename(file.filename);
                         if (language) {
+                            // Create empty object to hold total values
+                            if (!totals[language]) totals[language] = {
+                                bytes: 0,
+                                commits: 0
+                            };
+
+                            // Add one to the language commit count if we haven't already
+                            if (commitLangs.indexOf(language) == -1) {
+                                commitLangs.push(language);
+                                totals[language].commits += 1;
+                            }
+
                             // Parse Git diff
                             different.parseDiffFromString('diff\n' + file.patch, (diff) => {
                                 // Sum number of bytes from additions and add to results
@@ -132,8 +145,7 @@ exports.getCommitLanguages = (visibility, token) => {
                                     return line.length;
                                 }, 0);
 
-                                if (!totals[language]) totals[language] = 0;
-                                totals[language] += byteCount;
+                                totals[language].bytes += byteCount;
                             });
                         }
                     });

@@ -71,6 +71,16 @@ Returns an object like
 }
 ```
 
+## Building
+
+github-lang-getter uses Babel to build. Install the latest version of [Node.JS](https://nodejs.org/en/)
+
+```
+npm install
+npm run build
+```
+The `npm run build` script transpiles all files in `/src` and outputs them in `/dist`
+
 ## Tests
 
 Mocha tests are located in `/test`

@@ -1,7 +1,7 @@
 /* global it, describe */
 const assert = require('chai').assert;
 
-const langGetter = require('../index');
+const langGetter = require('../src/index');
 
 describe('Tests', () => {
     it('should return the language makeup of a user\'s repositories, in bytes', (done) => {

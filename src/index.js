@@ -76,6 +76,33 @@ module.exports.getCommitLanguages = async (visibility, token) => {
         repos = repos.concat(response.body);
     });
 
+    // Map repos to array of repo commits URLs
+    const repoCommitUrls = _.map(repos, (repo) => {
+        return repo.url + '/commits'
+    });
+
+    // Get URLs of all individual commits
+    const commitUrls = await getCommitsFromRepos(repoCommitUrls, token);
+
+    // Create Promises for individual commits
+    const promises = _.map(commitUrls, _.curry(createAPIRequestPromise)(token, null));
+    const commitResponses = await Promise.all(promises);
+
+    // Parse the commits json from the response bodies
+    const commits = _.map(commitResponses, 'body');
+
+    // Map our result data and return it
+    return mapCommitsToResult(commits);
+};
+
+/**
+ * Gets the list of individual commit URLs from a list of repository URLs
+ * @param  {String} repoUrls    Github repository URLs to find commits for
+ * @param  {Object} token       Github personal access token
+ * @return {Array}              List of individual commit URLs
+ */
+async function getCommitsFromRepos(repoUrls, token) {
+    // Get Github username from access token
     const options = _.defaultsDeep({
         uri: API_BASE_URL + '/user',
         qs: {
@@ -84,24 +111,17 @@ module.exports.getCommitLanguages = async (visibility, token) => {
         resolveWithFullResponse: false
     }, baseOpts);
 
-    // Get Github username from access token
     const user = await request(options);
 
-    // Get Repo commit URLs
-    const commitsUrls = _.map(repos, (repo) => {
-        return repo.url + '/commits'
-    });
-
     // Map a Promise for each repo commit URL
-    let commitsPromises = _.map(commitsUrls, _.curry(getRepoCommits)(user.login, token));
-    commitsPromises = commitsPromises.map((p) => p.then((v) => v, (e) => ({ error: e })));
+    let promises = _.map(repoUrls, _.curry(getRepoCommits)(user.login, token));
+    promises = promises.map((p) => p.then((v) => v, (e) => ({ error: e })));
 
-    const commitListResponses = await Promise.all(commitsPromises);
+    const responses = await Promise.all(promises);
 
+    // Get commits from Promise reponse bodies
     let commitsLists = [];
-
-    // Get commits from Promise reponses
-    commitListResponses.forEach((result) => {
+    responses.forEach((result) => {
         if (result.error) {
             // TODO: Promise may be rejected in certain cases should we do anything here?
         } else {
@@ -111,19 +131,19 @@ module.exports.getCommitLanguages = async (visibility, token) => {
         }
     });
 
-    // Map a promise for each individual commit URL
-    const commitUrls = _.chain(commitsLists).filter((c) => {
-                    return c && c.author && c.author.login === user.login;
-                }).map('url').value();
+    // Return array of individual commit urls
+    return _.chain(commitsLists).filter((c) => {
+        return c && c.author && c.author.login === user.login;
+    }).map('url').value();
+}
 
-    const promises = _.map(commitUrls, _.curry(createAPIRequestPromise)(token, null));
-
-    const commitResponses = await Promise.all(promises);
-
-    const commits = _.map(commitResponses, 'body');
-    const totals = {};
-
-    // For each file in the commit files
+/**
+ * Maps Github commit objects to language usage data
+ * @param  {Array} commits   Commits to get data for
+ * @return {Object}          Commits language usage data
+ */
+function mapCommitsToResult(commits) {
+    const totals = {}; // To store our result data
     _.each(commits, (commit) => {
         const commitLangs = []; // Store all the languages present in commit
         _.each(commit.files, (file) => {
@@ -155,7 +175,7 @@ module.exports.getCommitLanguages = async (visibility, token) => {
     });
 
     return totals;
-};
+}
 
 /**
  * Gets a list of Github user's repositories from the Github API

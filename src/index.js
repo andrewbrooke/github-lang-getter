@@ -35,15 +35,13 @@ module.exports.getRepoLanguages = async (visibility, token) => {
     const repoResponses = await getUserRepos(visibility, token);
 
     // Parse the repos json from the response bodies
-    let repos = [];
-    _.each(repoResponses, (response) => {
-        repos = repos.concat(response.body);
-    });
+    const repos = _.flatMap(repoResponses, 'body');
 
     // Map Promises for each URL to resolve to the total language byte count
     const urls = _.map(repos, 'languages_url');
     const promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
 
+    // Resolve the Promises and map the responses
     const langResponses = await Promise.all(promises);
     const results = _.map(langResponses, 'body');
 
@@ -71,10 +69,7 @@ module.exports.getCommitLanguages = async (visibility, token) => {
     const repoResponses = await getUserRepos(visibility, token);
 
     // Parse the repos json from the response bodies
-    let repos = [];
-    _.each(repoResponses, (response) => {
-        repos = repos.concat(response.body);
-    });
+    const repos = _.flatMap(repoResponses, 'body');
 
     // Map repos to array of repo commits URLs
     const repoCommitUrls = _.map(repos, (repo) => {
@@ -123,7 +118,7 @@ async function getCommitsFromRepos(repoUrls, token) {
     let commitsLists = [];
     responses.forEach((result) => {
         if (result.error) {
-            // TODO: Promise may be rejected in certain cases should we do anything here?
+            // TODO: Promise may be rejected in certain cases, should we do anything here?
         } else {
             _.each(result, (value) => {
                 commitsLists = commitsLists.concat(value.body);
@@ -215,12 +210,9 @@ async function getUserRepos(visibility, token) {
             }, url));
         }
     }
-    promises.push(_.curry(createAPIRequestPromise)(token, {
-        page: 1,
-        visibility: visibility
-    }, url));
 
-    return Promise.all(promises);
+    // Return the first response plus the Promise that will resolve the rest
+    return [response].concat(await Promise.all(promises));
 }
 
 /**
@@ -253,12 +245,9 @@ async function getRepoCommits(username, token, repoUrl) {
             }, repoUrl));
         }
     }
-    promises.push(_.curry(createAPIRequestPromise)(token, {
-        page: 1,
-        author: username
-    }, repoUrl));
 
-    return Promise.all(promises);
+    // Return the first response plus the Promise that will resolve the rest
+    return [response].concat(await Promise.all(promises));
 }
 
 /**
@@ -276,10 +265,11 @@ function createAPIRequestPromise(token, qs, url) {
             access_token: token, // eslint-disable-line
         }
     }, baseOpts);
+
+    // Attach extra query string parameters to the request options
     if (qs) {
-        for (let key in qs) {
-            if (Object.prototype.hasOwnProperty.call(qs, key))
-                options.qs[key] = qs[key];
+        for (let [key, val] of Object.entries(qs)) {
+            options.qs[key] = val;
         }
     }
 

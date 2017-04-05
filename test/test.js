@@ -1,7 +1,7 @@
 /* global it, describe */
 const assert = require('chai').assert;
 
-const langGetter = require('../index');
+const langGetter = require('../src/index');
 
 describe('Tests', () => {
     it('should return the language makeup of a user\'s repositories, in bytes', (done) => {
@@ -26,7 +26,12 @@ describe('Tests', () => {
         langGetter.getCommitLanguages('public', process.env.GITHUB_ACCESS_TOKEN).then((result) => {
             Object.keys(result).forEach((key) => {
                 assert.typeOf(key, 'String');
-                assert.typeOf(result[key], 'Number');
+                assert.typeOf(result[key], 'Object');
+                var resultObj = result[key];
+                assert.property(resultObj, 'commits');
+                assert.property(resultObj, 'bytes');
+                assert.typeOf(resultObj.commits, 'Number');
+                assert.typeOf(resultObj.bytes, 'Number');
             });
             done();
         });

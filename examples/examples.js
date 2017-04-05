@@ -1,4 +1,4 @@
-const langGetter = require('../index');
+const langGetter = require('../src/index');
 
 // Return the language makeup of a user's repositories, in bytes
 langGetter.getRepoLanguages('all', 'YOUR-ACCESS-TOKEN').then((result) => {

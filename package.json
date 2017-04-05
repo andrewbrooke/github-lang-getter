@@ -1,9 +1,11 @@
 {
   "name": "github-lang-getter",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Gets a Github user's programming language distribution across repositories and commits",
-  "main": "index.js",
+  "main": "./dist/index.js",
   "scripts": {
+    "build": "babel src -d dist",
+    "prepublish": "npm run build",
     "test": "nyc mocha"
   },
   "repository": {
@@ -24,6 +26,7 @@
   },
   "homepage": "https://github.com/andrewbrooke/github-lang-getter#readme",
   "dependencies": {
+    "babel-polyfill": "^6.23.0",
     "different": "git://github.com/andrewbrooke/different.git",
     "dotenv": "^4.0.0",
     "language-detect": "^1.1.0",
@@ -34,7 +37,11 @@
     "schema-inspector": "^1.6.8"
   },
   "devDependencies": {
+    "babel-cli": "^6.24.0",
+    "babel-eslint": "^7.2.1",
+    "babel-preset-latest": "^6.24.0",
     "chai": "^3.5.0",
+    "eslint": "^3.18.0",
     "mocha": "^3.2.0",
     "nyc": "^10.1.2"
   }

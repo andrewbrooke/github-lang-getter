@@ -31,8 +31,62 @@ const baseOpts = {
  */
 module.exports.getRepoLanguages = async (visibility, token) => {
     // First get the User's repositories
-    const repoResponses = await getUserRepos(visibility, token);
+    const repoResponses = await getUserRepos(null, visibility, token);
 
+    // Parse repos and return the user's repository programming language distribution
+    return getRepoLanguageTotals(repoResponses, token);
+};
+
+/**
+ * Gets a GitHub user's repository programming language distribution
+ * @param  {String} username    GitHub username
+ * @return {Promise}            Resolves if API request performed successfully
+ *                              Rejects if parameters are invalid, or error occurs with API request
+ */
+module.exports.getRepoLanguagesByUsername = async (username) => {
+    // Get user's repositories
+    const repoResponses = await getUserRepos(username);
+
+    // Parse repos and return the user's repository programming language distribution
+    return getRepoLanguageTotals(repoResponses);
+};
+
+/**
+ * Gets a Github user's commit programming language distribution
+ * @param  {String} visibility  Type of repositories to find (can be all, public, or private)
+ * @param  {Object} token       Github personal access token
+ * @return {Promise}            Resolves if API request performed successfully
+ *                              Rejects if parameters are invalid, or error occurs with API request
+ */
+module.exports.getCommitLanguages = async (visibility, token) => {
+    // First get the user's repositories
+    const repoResponses = await getUserRepos(null, visibility, token);
+
+    // Parse repo commits and return user's commit programming lanugage distribution
+    return getCommitLanguageTotals(repoResponses, token);
+};
+
+/**
+ * Gets a GitHub user's commit programming language distribution
+ * @param  {String} username    GitHub username
+ * @return {Promise}            Resolves if API request performed successfully
+ *                              Rejects if parameters are invalid, or error occurs with API request
+ */
+module.exports.getCommitLanguagesByUsername = async (username) => {
+    // Get user's repositories
+    const repoResponses = await getUserRepos(username);
+
+    // Parse repo commits and return user's commit programming lanugage distribution
+    return getCommitLanguageTotals(repoResponses, null, username);
+};
+
+/**
+ * Totals the programming language distribution from a user's repositories.
+ * @param  {Array}  repoResponses  List of user's repositories from GitHub API
+ * @param  {String} token          GitHub personal access token
+ * @return {Object}                User's repo language data
+ */
+async function getRepoLanguageTotals(repoResponses, token) {
     // Parse the repos json from the response bodies
     const repos = _.flatMap(repoResponses, 'body');
 
@@ -54,19 +108,16 @@ module.exports.getRepoLanguages = async (visibility, token) => {
     });
 
     return totals;
-};
+}
 
 /**
- * Gets a Github user's commit programming language distribution
- * @param  {String} visibility  Type of repositories to find (can be all, public, or private)
- * @param  {Object} token       Github personal access token
- * @return {Promise}            Resolves if API request performed successfully
- *                              Rejects if parameters are invalid, or error occurs with API request
- */
-module.exports.getCommitLanguages = async (visibility, token) => {
-    // First get the user's repositories
-    const repoResponses = await getUserRepos(visibility, token);
-
+* Totals the programming language distribution from a user's commits.
+* @param {Array}   repoResponses  List of user's repositories from GitHub API
+* @param {String}  token          GitHub personal access token
+* @param {String}  username       GitHub username
+* @return {Object}                User's commit language data
+*/
+async function getCommitLanguageTotals(repoResponses, token, username) {
     // Parse the repos json from the response bodies
     const repos = _.flatMap(repoResponses, 'body');
 
@@ -76,7 +127,7 @@ module.exports.getCommitLanguages = async (visibility, token) => {
     });
 
     // Get URLs of all individual commits
-    const commitUrls = await getCommitsFromRepos(repoCommitUrls, token);
+    const commitUrls = await getCommitsFromRepos(repoCommitUrls, token, username);
 
     // Create Promises for individual commits
     const promises = _.map(commitUrls, _.curry(createAPIRequestPromise)(token, null));
@@ -87,28 +138,35 @@ module.exports.getCommitLanguages = async (visibility, token) => {
 
     // Map our result data and return it
     return mapCommitsToResult(commits);
-};
+}
 
 /**
  * Gets the list of individual commit URLs from a list of repository URLs
  * @param  {String} repoUrls    Github repository URLs to find commits for
  * @param  {Object} token       Github personal access token
+ * @param  {String} username    GitHub username
  * @return {Array}              List of individual commit URLs
  */
-async function getCommitsFromRepos(repoUrls, token) {
-    // Get Github username from access token
-    const options = _.defaultsDeep({
-        uri: API_BASE_URL + '/user',
-        qs: {
-            access_token: token, // eslint-disable-line
-        },
-        resolveWithFullResponse: false
-    }, baseOpts);
+async function getCommitsFromRepos(repoUrls, token, username) {
+    let user;
 
-    const user = await request(options);
+    // Set user to username if given
+    if (username) user = username;
+    else { // Get GitHub username from access token if username parameter is undefined
+        const options = _.defaultsDeep({
+            uri: API_BASE_URL + '/user',
+            qs: {
+                access_token: token, // eslint-disable-line
+            },
+            resolveWithFullResponse: false
+        }, baseOpts);
+
+        const userResponse = await request(options);
+        user = userResponse.login;
+    }
 
     // Map a Promise for each repo commit URL
-    let promises = _.map(repoUrls, _.curry(getRepoCommits)(user.login, token));
+    let promises = _.map(repoUrls, _.curry(getRepoCommits)(user, token));
     promises = promises.map((p) => p.then((v) => v, (e) => ({ error: e })));
 
     const responses = await Promise.all(promises);
@@ -127,7 +185,7 @@ async function getCommitsFromRepos(repoUrls, token) {
 
     // Return array of individual commit urls
     return _.chain(commitsLists).filter((c) => {
-        return c && c.author && c.author.login === user.login;
+        return c && c.author && c.author.login === user;
     }).map('url').value();
 }
 
@@ -173,46 +231,56 @@ function mapCommitsToResult(commits) {
 
 /**
  * Gets a list of Github user's repositories from the Github API
+ * @param  {String} username    GitHub username
  * @param  {String} visibility  Type of repositories to find (can be all, public, or private)
  * @param  {String} token       Github personal access token
  * @return {Promise}            Resolves if repo URLs are obtained
  *                              Rejects if an error occurs obtaining URLs
  */
-async function getUserRepos(visibility, token) {
-    // First validate the user token input
-    const validation = {
-        type: 'string'
-    };
-    const result = inspector.validate(validation, token);
-    if (!result.valid) throw Error(result.format());
+ async function getUserRepos(username, visibility, token) {
+     // Validate the user token input
+     const validation = {
+         type: 'string'
+     };
 
-    // Form options for API request
-    const url = API_BASE_URL + '/user/repos';
-    const options = _.defaultsDeep({
-        uri: url,
-        qs: {
-            access_token: token, // eslint-disable-line
-            visibility: visibility
-        }
-    }, baseOpts);
+     // Set validation result and URL based on given parameters
+     let result, url = API_BASE_URL;
+     if (username) {
+         result = inspector.validate(validation, username);
+         url = `${url}/users/${username}/repos`;
+     } else {
+         result = inspector.validate(validation, token);
+         url = `${url}/user/repos`;
+     }
 
-    const response = await request(options);
-    const link = parse(response.headers.link);
-    const promises = []; // To store the promises to resolve the other pages of repos
+     if (!result.valid) throw Error(result.format());
 
-    if (link) { // Get the other pages of results if necessary
-        const start = Number(link.next.page), end = Number(link.last.page);
-        for (let page = start; page <= end; page++) {
-            promises.push(_.curry(createAPIRequestPromise)(token, {
-                page: page,
-                visibility: visibility
+     // Form options for API request
+     const options = _.defaultsDeep({
+         uri: url,
+         qs: {
+             access_token: token, // eslint-disable-line
+             visibility: visibility
+         }
+     }, baseOpts);
+
+     const response = await request(options);
+     const link = parse(response.headers.link);
+     const promises = []; // To store the promises to resolve the other pages of repos
+
+     if (link) { // Get the other pages of results if necessary
+         const start = Number(link.next.page), end = Number(link.last.page);
+         for (let page = start; page <= end; page++) {
+             promises.push(_.curry(createAPIRequestPromise)(token, {
+                 page: page,
+                 visibility: visibility
             }, url));
-        }
-    }
+         }
+     }
 
-    // Return the first response plus the Promise that will resolve the rest
-    return [response].concat(await Promise.all(promises));
-}
+     // Return the first response plus the Promise that will resolve the rest
+     return [response].concat(await Promise.all(promises));
+ }
 
 /**
  * Creates and returns a promise to resolve to all of the commits for a Github repo
@@ -227,9 +295,9 @@ async function getRepoCommits(username, token, repoUrl) {
         uri: repoUrl,
         qs: {
             access_token: token, // eslint-disable-line
+            author: username
         }
     }, baseOpts);
-    if (username) options.qs.author = username;
 
     const response = await request(options);
     const promises = []; // To store the promises to resolve the other pages of commits

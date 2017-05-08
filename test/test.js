@@ -23,7 +23,7 @@ describe('Tests', () => {
     });
 
     it('should use username to return the language makeup of a user\'s repositories, in bytes', (done) => {
-        langGetter.getRepoLanguagesByUsername(process.env.GITHUB_USERNAME).then((result) => {
+        langGetter.getRepoLanguagesByUsername(process.env.GITHUB_USERNAME, process.env.GITHUB_ACCESS_TOKEN).then((result) => {
             Object.keys(result).forEach((key) => {
                 assert.typeOf(key, 'String');
                 assert.typeOf(result[key], 'Number');
@@ -33,7 +33,7 @@ describe('Tests', () => {
     });
 
     it('should fail to return repo language makeup due to unfound username', (done) => {
-        langGetter.getRepoLanguagesByUsername('FAKE-GITHUB-USERNAME').catch((err) => {
+        langGetter.getRepoLanguagesByUsername('FAKE-GITHUB-USERNAME', process.env.GITHUB_ACCESS_TOKEN).catch((err) => {
             assert.equal(err.statusCode, 404);
             assert.equal(err.error.message, 'Not Found');
             done();
@@ -64,7 +64,7 @@ describe('Tests', () => {
     });
 
     it('should use username to return the language makeup of a user\'s commits, in bytes', (done) => {
-        langGetter.getCommitLanguagesByUsername(process.env.GITHUB_USERNAME).then((result) => {
+        langGetter.getCommitLanguagesByUsername(process.env.GITHUB_USERNAME, process.env.GITHUB_ACCESS_TOKEN).then((result) => {
             Object.keys(result).forEach((key) => {
                 assert.typeOf(key, 'String');
                 assert.typeOf(result[key], 'Object');
@@ -79,7 +79,7 @@ describe('Tests', () => {
     });
 
     it('should fail to return commit language makeup due to unfound username', (done) => {
-        langGetter.getCommitLanguagesByUsername('FAKE-GITHUB-USERNAME').catch((err) => {
+        langGetter.getCommitLanguagesByUsername('FAKE-GITHUB-USERNAME', process.env.GITHUB_ACCESS_TOKEN).catch((err) => {
             assert.equal(err.statusCode, 404);
             assert.equal(err.error.message, 'Not Found');
             done();

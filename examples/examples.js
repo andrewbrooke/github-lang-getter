@@ -8,7 +8,7 @@ langGetter.getRepoLanguages('all', 'YOUR-ACCESS-TOKEN').then((result) => {
 });
 
 // Return the language makeup of a user's repositories, in bytes
-langGetter.getRepoLanguagesByUsername('YOUR-USERNAME').then((result) => {
+langGetter.getRepoLanguagesByUsername('YOUR-USERNAME', 'YOUR-ACCESS-TOKEN').then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
@@ -22,7 +22,7 @@ langGetter.getCommitLanguages('all', 'YOUR-ACCESS-TOKEN').then((result) => {
 });
 
 // Return the language makeup of a user's commits, in bytes
-langGetter.getCommitLanguagesByUsername('YOUR-USERNAME').then((result) => {
+langGetter.getCommitLanguagesByUsername('YOUR-USERNAME', 'YOUR-ACCESS-TOKEN').then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);

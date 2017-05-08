@@ -30,7 +30,8 @@ or
 
 ```
 var username = 'YOUR-USERNAME';
-langGetter.getRepoLanguagesByUsername(username).then((result) => {
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+langGetter.getRepoLanguagesByUsername(username, token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
@@ -67,7 +68,8 @@ or
 
 ```
 var username = 'YOUR-USERNAME';
-langGetter.getCommitLanguagesByUsername(username).then((result) => {
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+langGetter.getCommitLanguagesByUsername(username, token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);

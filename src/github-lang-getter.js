@@ -40,12 +40,13 @@ module.exports.getRepoLanguages = async (visibility, token) => {
 /**
  * Gets a GitHub user's repository programming language distribution
  * @param  {String} username    GitHub username
+ * @param  {Object} token       Github personal access token
  * @return {Promise}            Resolves if API request performed successfully
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
-module.exports.getRepoLanguagesByUsername = async (username) => {
+module.exports.getRepoLanguagesByUsername = async (username, token) => {
     // Get user's repositories
-    const repoResponses = await getUserRepos(username);
+    const repoResponses = await getUserRepos(username, 'public', token);
 
     // Parse repos and return the user's repository programming language distribution
     return getRepoLanguageTotals(repoResponses);
@@ -69,15 +70,16 @@ module.exports.getCommitLanguages = async (visibility, token) => {
 /**
  * Gets a GitHub user's commit programming language distribution
  * @param  {String} username    GitHub username
+ * @param  {Object} token       Github personal access token
  * @return {Promise}            Resolves if API request performed successfully
  *                              Rejects if parameters are invalid, or error occurs with API request
  */
-module.exports.getCommitLanguagesByUsername = async (username) => {
+module.exports.getCommitLanguagesByUsername = async (username, token) => {
     // Get user's repositories
-    const repoResponses = await getUserRepos(username);
+    const repoResponses = await getUserRepos(username, 'public', token);
 
     // Parse repo commits and return user's commit programming lanugage distribution
-    return getCommitLanguageTotals(repoResponses, null, username);
+    return getCommitLanguageTotals(repoResponses, token, username);
 };
 
 /**
@@ -120,7 +122,6 @@ async function getRepoLanguageTotals(repoResponses, token) {
 async function getCommitLanguageTotals(repoResponses, token, username) {
     // Parse the repos json from the response bodies
     const repos = _.flatMap(repoResponses, 'body');
-
     // Map repos to array of repo commits URLs
     const repoCommitUrls = _.map(repos, (repo) => {
         return repo.url + '/commits'
@@ -128,7 +129,6 @@ async function getCommitLanguageTotals(repoResponses, token, username) {
 
     // Get URLs of all individual commits
     const commitUrls = await getCommitsFromRepos(repoCommitUrls, token, username);
-
     // Create Promises for individual commits
     const promises = _.map(commitUrls, _.curry(createAPIRequestPromise)(token, null));
     const commitResponses = await Promise.all(promises);

@@ -14,12 +14,24 @@ Import `const langGetter = require('github-lang-getter');`
 
 Return the language makeup of a user's repositories, in bytes
 
-The numbers returned by this method reflect the number of bytes committed by all contributors.
+The numbers returned by these methods reflect the number of bytes committed by all contributors.
 
 ```
 var visibility = 'all'; // can be all, public, or private
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
 langGetter.getRepoLanguages(visibility, token).then((result) => {
+    console.log(result);
+}).catch((err) => {
+    console.log(err);
+});
+```
+
+or
+
+```
+var username = 'YOUR-USERNAME';
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+langGetter.getRepoLanguagesByUsername(username, token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
@@ -40,12 +52,24 @@ Returns an object like
 
 Return the language makeup of a user's commits, in bytes
 
-The numbers returned by this method reflect the number of bytes only committed by the user.
+The numbers returned by these methods reflect the number of bytes only committed by the user.
 
 ```
 var visibility = 'all'; // can be all, public, or private
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
 langGetter.getCommitLanguages(visibility, token).then((result) => {
+    console.log(result);
+}).catch((err) => {
+    console.log(err);
+});
+```
+
+or
+
+```
+var username = 'YOUR-USERNAME';
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+langGetter.getCommitLanguagesByUsername(username, token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
@@ -89,6 +113,7 @@ To run the tests, create a `.env` file at the root directory with contents like 
 
 ```
 GITHUB_ACCESS_TOKEN=YOUR-ACCESS-TOKEN
+GITHUB_USERNAME=YOUR-USERNAME
 ```
 
 Run the following commands

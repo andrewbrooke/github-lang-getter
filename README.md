@@ -14,31 +14,46 @@ Import `const langGetter = require('github-lang-getter');`
 
 Return the language makeup of a user's repositories, in bytes
 
-The numbers returned by these methods reflect the number of bytes committed by all contributors.
+NOTE: The numbers returned by these methods reflect the number of bytes committed by all contributors.
 
 ```
-var visibility = 'all'; // can be all, public, or private
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
-langGetter.getRepoLanguages(visibility, token).then((result) => {
+langGetter.getRepoLanguages(token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
 });
 ```
 
-or
+For `getRepoLanguages`, you can also supply an optional second parameter to specify the `visibility` and `affiliation` of repositories to find.
+NOTE: Both `visibility` and `affiliation` are optional.
 
 ```
-var username = 'YOUR-USERNAME';
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
-langGetter.getRepoLanguagesByUsername(username, token).then((result) => {
+var options = {
+    visibility: 'all' // 'all', 'public', or 'private'
+    affiliation: ['owner'] // combination of 'owner', 'collaborator', and 'organization_member'
+};
+langGetter.getRepoLanguages(token, options).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
 });
 ```
 
-Returns an object like
+You can also use `getRepoLanguagesByUsername` to query for another user's language makeup.
+
+```
+var username = 'GITHUB-USERNAME';
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+langGetter.getRepoLanguagesByUsername(token, username).then((result) => {
+    console.log(result);
+}).catch((err) => {
+    console.log(err);
+});
+```
+
+The above methods return an object similar to the following:
 
 ```
 {
@@ -52,31 +67,46 @@ Returns an object like
 
 Return the language makeup of a user's commits, in bytes
 
-The numbers returned by these methods reflect the number of bytes only committed by the user.
+NOTE: The numbers returned by these methods reflect the number of bytes only committed by the user.
 
 ```
-var visibility = 'all'; // can be all, public, or private
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
-langGetter.getCommitLanguages(visibility, token).then((result) => {
+langGetter.getCommitLanguages(token).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
 });
 ```
 
-or
+For `getCommitLanguages`, you can also supply an optional second parameter to specify the `visibility` and `affiliation` of repositories to find.
+NOTE: Both `visibility` and `affiliation` are optional.
+
+```
+var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
+var options = {
+    visibility: 'all' // 'all', 'public', or 'private'
+    affiliation: ['owner'] // combination of 'owner', 'collaborator', and 'organization_member'
+};
+langGetter.getCommitLanguages(token, options).then((result) => {
+    console.log(result);
+}).catch((err) => {
+    console.log(err);
+});
+```
+
+You can also use `getCommitLanguagesByUsername` to query for another user's language makeup.
 
 ```
 var username = 'YOUR-USERNAME';
 var token = 'YOUR-ACCESS-TOKEN'; // https://github.com/settings/tokens
-langGetter.getCommitLanguagesByUsername(username, token).then((result) => {
+langGetter.getCommitLanguagesByUsername(token, username).then((result) => {
     console.log(result);
 }).catch((err) => {
     console.log(err);
 });
 ```
 
-Returns an object like
+The above methods return an object similar to the following:
 
 ```
 {

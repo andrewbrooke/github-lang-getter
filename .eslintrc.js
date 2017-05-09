@@ -73,7 +73,7 @@ module.exports = {
         "id-blacklist": "error",
         "id-length": "off",
         "id-match": "error",
-        "indent": "off",
+        "indent": ["error", 4],
         "init-declarations": "off",
         "jsx-quotes": "error",
         "key-spacing": "error",
@@ -152,12 +152,7 @@ module.exports = {
         "no-new-require": "error",
         "no-new-wrappers": "error",
         "no-octal-escape": "error",
-        "no-param-reassign": [
-            "error",
-            {
-                "props": false
-            }
-        ],
+        "no-param-reassign": "off",
         "no-path-concat": "error",
         "no-plusplus": [
             "error",
@@ -183,7 +178,7 @@ module.exports = {
         "no-shadow-restricted-names": "error",
         "no-spaced-func": "error",
         "no-sync": "error",
-        "no-tabs": "off",
+        "no-tabs": "error",
         "no-template-curly-in-string": "error",
         "no-ternary": "off",
         "no-throw-literal": "error",

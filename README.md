@@ -160,11 +160,14 @@ Bug fixes and new features are encouraged, feel free to fork and make a pull req
 - Follow the ESLint rules set in .eslintrc.js
 - Add Mocha tests for new functionality
 
+## CHANGELOG
+
+[View changes here](CHANGELOG.md)
+
 ## TODOS
 
 - Improve API calls to prevent Github rate limit errors
 - Find a way to exclude bytes in files that are a result of build processes
-- Add methods to get language stats by Github username (only for public repos)
 
 ## License
 

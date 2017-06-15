@@ -5,6 +5,7 @@ const detect = require('language-detect');
 const different = require('different');
 const inspector = require('schema-inspector');
 const parse = require('parse-link-header');
+const Promise = require('bluebird');
 const request = require('request-promise-native');
 
 const API_BASE_URL = 'https://api.github.com';
@@ -21,6 +22,8 @@ const API_BASE_OPTS = {
     json: true,
     resolveWithFullResponse: true
 };
+
+const PROMISE_CONCURRENCY = 10;
 
 /**
  * Gets a Github user's repository programming language distribution
@@ -96,12 +99,13 @@ async function getRepoLanguageTotals(repoResponses, token) {
     // Parse the repos json from the response bodies
     const repos = _.flatMap(repoResponses, 'body');
 
-    // Map Promises for each URL to resolve to the total language byte count
+    // Get URLs for each repo language breakdown
     const urls = _.map(repos, 'languages_url');
-    const promises = _.map(urls, _.curry(createAPIRequestPromise)(token, null));
 
-    // Resolve the Promises and map the responses
-    const langResponses = await Promise.all(promises);
+    // Maps URLs into promises and resolves them with Bluebird.map to avoid Github API limits
+    const langResponses = await Promise.map(urls, function(url) {
+        return createAPIRequestPromise(token, null, url);
+    }, { concurrency: PROMISE_CONCURRENCY });
     const results = _.map(langResponses, 'body');
 
     // Count bytes per language
@@ -133,9 +137,11 @@ async function getCommitLanguageTotals(repoResponses, token, username) {
 
     // Get URLs of all individual commits
     const commitUrls = await getCommitsFromRepos(repoCommitUrls, token, username);
-    // Create Promises for individual commits
-    const promises = _.map(commitUrls, _.curry(createAPIRequestPromise)(token, null));
-    const commitResponses = await Promise.all(promises);
+
+    // Maps URLs into promises and resolves them with Bluebird.map to avoid Github API limits
+    const commitResponses = await Promise.map(commitUrls, function(url) {
+        return createAPIRequestPromise(token, null, url);
+    }, { concurrency: PROMISE_CONCURRENCY });
 
     // Parse the commits json from the response bodies
     const commits = _.map(commitResponses, 'body');
@@ -169,13 +175,12 @@ async function getCommitsFromRepos(repoUrls, token, username) {
         user = userResponse.login;
     }
 
-    // Map a Promise for each repo commit URL
-    let promises = _.map(repoUrls, _.curry(getRepoCommits)(user, token));
-    promises = promises.map((p) => p.then((v) => v, (e) => ({
-        error: e
-    })));
-
-    const responses = await Promise.all(promises);
+    // Maps repo commit URLs into promises and resolves them with Bluebird.map to avoid Github API limits
+    const responses = await Promise.map(repoUrls, function(url) {
+        return getRepoCommits(user, token, url).catch((error) => {
+            return { error: error };
+        });
+    }, { concurrency: PROMISE_CONCURRENCY });
 
     // Get commits from Promise reponse bodies
     let commitsLists = [];

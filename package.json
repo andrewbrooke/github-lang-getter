@@ -27,6 +27,7 @@
   "homepage": "https://github.com/andrewbrooke/github-lang-getter#readme",
   "dependencies": {
     "babel-polyfill": "^6.23.0",
+    "bluebird": "^3.5.0",
     "different": "git://github.com/andrewbrooke/different.git",
     "dotenv": "^4.0.0",
     "language-detect": "^1.1.0",

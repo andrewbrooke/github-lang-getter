@@ -1,9 +1,14 @@
-/* global it, describe */
 const assert = require('chai').assert;
 
 const langGetter = require('../src/index');
 
 describe('Tests for getRepoLanguages', () => {
+    // Add a delay between each test
+    beforeEach((done) => {
+        setTimeout(() => {
+            done();
+        }, 2000);
+    });
     it('should return the language makeup of a user\'s repositories, in bytes', (done) => {
         langGetter.getRepoLanguages(process.env.GITHUB_ACCESS_TOKEN).then((result) => {
             Object.keys(result).forEach((key) => {

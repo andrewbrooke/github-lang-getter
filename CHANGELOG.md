@@ -1,3 +1,7 @@
+## 3.0.1
+
+- Resolved issues hitting Github API abuse detection
+
 ## 3.0.0
 
 - Changed method signatures
